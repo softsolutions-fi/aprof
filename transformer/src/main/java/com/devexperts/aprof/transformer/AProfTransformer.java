@@ -86,7 +86,7 @@ public class AProfTransformer implements ClassFileTransformer {
 		// start transformation
 		boolean anonymous = internalClassName == null;
 		String cname = anonymous ? null : internalClassName.replace('/', '.');
-		int classNo = AProfRegistry.incrementCount();
+		int classNo = AProfRegistry.incrementCount(cname);
 		if (!anonymous && isExcluded(cname)) {
 			log(classNo, "Skipping transformation of excluded class", cname, loader, null);
 			return null;

@@ -22,12 +22,31 @@ package com.devexperts.aprof;
  * #L%
  */
 
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.nio.file.StandardOpenOption;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
 import com.devexperts.aprof.dump.SnapshotDeep;
 import com.devexperts.aprof.dump.SnapshotShallow;
 import com.devexperts.aprof.util.*;
+
+import static java.nio.file.StandardOpenOption.*;
 
 /**
  * @author Roman Elizarov
@@ -546,6 +565,7 @@ public class AProfRegistry {
 	private static final AtomicInteger cnt = new AtomicInteger();
 	private static final AtomicLong time = new AtomicLong();
 
+
 	public static int getCount() {
 		return cnt.get();
 	}
@@ -554,7 +574,12 @@ public class AProfRegistry {
 		return time.get();
 	}
 
-	public static int incrementCount() {
+	public static int incrementCount(String cname) {
+//		if (_allocations.containsKey(cname)) {
+//			_allocations.get(cname).incrementAndGet();
+//		} else {
+//			_allocations.put(cname, new AtomicInteger(1));
+//		}
 		return cnt.incrementAndGet();
 	}
 

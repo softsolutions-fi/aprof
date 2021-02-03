@@ -62,6 +62,28 @@ public class FastFmtUtil {
 			out.print("0");
 	}
 
+	public static String printNumAsString(long value) {
+		String res = "";
+		if (value < 0) {
+			res = res + '-';
+			value = -value;
+		}
+		boolean fill = false;
+		for (long x = 1000000000000000000L; x >= 1; x /= 1000) {
+			if (value >= x || fill) {
+				if (fill)
+					res = res + ",";
+				res = res + print3AsString((int)(value / x), fill);
+				value = value % x;
+				fill = true;
+			}
+		}
+//		if (!fill)
+//			out.print("0");
+		return res;
+	}
+
+
 	public static void print3(PrintWriter out, int value, boolean fill) {
 		if (fill || value >= 100)
 			out.print((char)(value / 100 + '0'));
@@ -74,10 +96,37 @@ public class FastFmtUtil {
 		out.print((char)(value % 10 + '0'));
 	}
 
+	public static String print3AsString(int value, boolean fill) {
+		String res = "";
+		if (fill || value >= 100) {
+			res = ((char) (value / 100 + '0')) + "";
+		}
+		res = res + print2AsString(value, fill);
+		return res;
+	}
+
+	public static String print2AsString(int value, boolean fill) {
+		String res = "";
+		if (fill || value >= 10)
+			res = ((char)(value / 10 % 10 + '0')) + "";
+		res = res + ((char)(value % 10 + '0'));
+		return res;
+	}
+
 	public static void printAvg(PrintWriter out, long size, long count) {
 		out.print("(avg size ");
 		printNum(out, Math.round((double)size / count));
 		out.print(" bytes)");
+	}
+
+	public static String printAvgAsString(long size, long count) {
+		String res = "";
+
+		res = res + "(avg size ";
+		res = res + printNumAsString(Math.round((double)size / count));
+		res = res + " bytes)";
+
+		return res;
 	}
 
 	public static void printNumPercent(PrintWriter out, long count, long total) {
@@ -91,6 +140,21 @@ public class FastFmtUtil {
 			out.print("%)");
 		}
 	}
+
+	public static String printNumPercentAsString(long count, long total) {
+		String res=  "";
+		res = printNumAsString(count);
+		if (count > 0 && total > 0) {
+			res = res + " (";
+			long pp = count * 10000 / total;
+			res = res + printNumAsString(pp / 100);
+			res = res + ".";
+			res = res + print2AsString((int)(pp % 100), true);
+			res = res + "%)";
+		}
+		return res;
+	}
+
 
 	public static void printTimePeriod(PrintWriter out, long millis) {
 		long hour = millis / (60 * 60000);

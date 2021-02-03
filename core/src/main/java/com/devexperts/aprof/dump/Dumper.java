@@ -23,6 +23,13 @@ package com.devexperts.aprof.dump;
  */
 
 import java.io.*;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 
 import com.devexperts.aprof.*;
 import com.devexperts.aprof.util.*;
@@ -48,11 +55,56 @@ public class Dumper {
 	private int snapshotCount = 0;
 	private int overflowCount = 0;
 
+	private boolean firstTime;
+
 	public Dumper(Configuration config, long start) {
 		this.config = config;
 		this.argsStr = config.toString();
 		this.start = start;
 		this.formatter = new DumpFormatter(config);
+		this.firstTime = true;
+
+		ScheduledExecutorService exec = Executors.newSingleThreadScheduledExecutor();
+		exec.scheduleAtFixedRate(new Runnable() {
+			@Override
+			public void run() {
+				SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'");
+				String dateMark = sdf.format(new Date());
+				AProfRegistry.takeSnapshot(last);
+				total.addDeep(last);
+				snapshotCount++;
+				String allocationDump = formatter.dumpSnapshotByLocationsAsString(last, SnapshotDeep.UNKNOWN);
+
+				PrintWriter out = null;
+				try {
+					out = new PrintWriter(new FastOutputStreamWriter(new FileOutputStream("ss_object_dump.txt", !firstTime)));
+
+					if (firstTime) {
+						out.println("");
+						out.println(dateMark);
+						out.println("-----------------------------------------------------");
+						out.println("Dump Softsolutions! additional info");
+						out.println("-----------------------------------------------------");
+						out.println("");
+					}
+
+					//out.println(allocationDump);
+					out.println(dateMark + " -> " + allocationDump);
+					firstTime = false;
+
+				} catch (IOException e) {
+					//e.printStackTrace();
+				} finally {
+					if (out != null)
+						try {
+							out.close();
+						} catch (Exception e) {
+							//e.printStackTrace();
+						}
+				}
+			}
+		}, 1, 10, TimeUnit.SECONDS);
+
 	}
 
 	public synchronized void makeOverflowSnapshot() {
@@ -147,6 +199,18 @@ public class Dumper {
 
 		total.setTime(now - start);
 		formatter.dumpSnapshot(out, total, "TOTAL");
+
+
+//		out.println("");
+//		out.println("-----------------------------------------------------");
+//		out.println("Dump Softsolutions! additional info");
+//		out.println("-----------------------------------------------------");
+//		out.println("");
+//		if (_allocationsDump != null) {
+//			for (Map.Entry<String, String> entry : _allocationsDump.entrySet()) {
+//				out.println(entry.getKey() + " -> " + entry.getValue());
+//			}
+//		}
 		out.println();
 	}
 

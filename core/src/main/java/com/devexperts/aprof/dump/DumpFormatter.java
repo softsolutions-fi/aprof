@@ -24,6 +24,7 @@ package com.devexperts.aprof.dump;
 
 import java.io.PrintWriter;
 import java.util.Comparator;
+import java.util.Map;
 
 import com.devexperts.aprof.AProfRegistry;
 import com.devexperts.aprof.Configuration;
@@ -69,6 +70,29 @@ public class DumpFormatter {
 		printlnTearLine(out, '-');
 		ss.sortChildrenDeep(getOutputComparator());
 		dumpSnapshotByDataTypes(out, ss);
+
+//		out.println("Dump Softsolutions! additional info");
+//		Map<String, String> allocationDump = AProfRegistry.getAllocationDump();
+//		if (allocationDump != null) {
+//			for (Map.Entry<String, String> entry : allocationDump.entrySet()) {
+//				out.println(entry.getKey() + ":" + entry.getValue());
+//			}
+//		}
+	}
+
+	public String dumpSnapshotByLocationsAsString(SnapshotRoot ss, String insideOf) {
+		locations.clearDeep();
+		locations.sortChildrenDeep(SnapshotShallow.COMPARATOR_NAME);
+		locationIndex.fill(-1);
+		for (int i = 0; i < ss.getUsed(); i++) {
+			SnapshotDeep cs = ss.getChild(i);
+			String dataTypeName = cs.getName();
+			findLocationsDeep(cs, dataTypeName, cs.getHistoCountsLength(), insideOf);
+		}
+		locations.updateSnapshotSumDeep();
+		// sort them and print
+		locations.sortChildrenDeep(getOutputComparator());
+		return printLocationsDeepAsString(0, locations, ss);
 	}
 
 	private Comparator<SnapshotShallow> getOutputComparator() {
@@ -76,7 +100,6 @@ public class DumpFormatter {
 	}
 
 	private void dumpSnapshotByLocations(PrintWriter out, SnapshotRoot ss, String insideOf) {
-		// rebuild locations
 		locations.clearDeep();
 		locations.sortChildrenDeep(SnapshotShallow.COMPARATOR_NAME);
 		locationIndex.fill(-1);
@@ -176,6 +199,48 @@ public class DumpFormatter {
 			countPossibleEliminatedAllocationsRec(ss.getChild(i));
 	}
 
+
+	public String dumpSnapshotByDataTypesAsString(SnapshotRoot ss) {
+		String result = "";
+		// compute class levels -- classes of level 0 are classes that exceed threshold
+		classLevel.fill(Integer.MAX_VALUE);
+		for (int csi = 0; csi < ss.getUsed(); csi++) {
+			SnapshotDeep cs = ss.getChild(csi);
+			classLevel.put(cs.getName(), cs.exceedsThreshold(ss, config.getThreshold()) ? 0 : Integer.MAX_VALUE);
+		}
+		// compute progressive higher levels
+		for (int level = 0; level < config.getLevel(); level++)
+			for (int csi = 0; csi < ss.getUsed(); csi++) {
+				SnapshotDeep cs = ss.getChild(csi);
+				if (classLevel.get(cs.getName()) == level)
+					markClassLevelRec(cs, level);
+			}
+
+		// dump classes
+		int cskipped = 0;
+		rest[0].clearShallow();
+		for (int csi = 0; csi < ss.getUsed(); csi++) {
+			SnapshotDeep cs = ss.getChild(csi);
+			if (!cs.isEmpty() && classLevel.get(cs.getName()) <= config.getLevel()) {
+				result = result + cs.getName();
+				result = result + printlnDetailsShallowAsString(cs, ss, true, cs.isPossiblyEliminatedAllocation());
+				//printLocationsDeep(out, 1, cs, ss);
+				//out.println();
+			} else if (!cs.isEmpty()) {
+				cskipped++;
+				rest[0].addShallow(cs);
+			}
+		}
+//		if (cskipped > 0) {
+//			out.print("... ");
+//			printNum(out, cskipped);
+//			out.print(" more below threshold");
+//			printlnDetailsShallow(out, rest[0], ss, true, false);
+//		}
+		return result;
+	}
+
+
 	public void dumpSnapshotByDataTypes(PrintWriter out, SnapshotRoot ss) {
 		// compute class levels -- classes of level 0 are classes that exceed threshold
 		classLevel.fill(Integer.MAX_VALUE);
@@ -248,6 +313,46 @@ public class DumpFormatter {
 		out.println();
 	}
 
+
+	private String printlnDetailsShallowAsString(SnapshotShallow item, SnapshotShallow total, boolean printAvg,
+									   boolean possiblyEliminated)
+	{
+		String res = " ";
+		res = res + ": ";
+		if (config.isSize()) {
+			res = res + printNumPercentAsString(item.getSize(), total.getSize());
+			res = res + " bytes in ";
+		}
+		res = res + printNumPercentAsString(item.getTotalCount(), total.getTotalCount());
+		res = res +" objects";
+		if (printAvg) {
+			res = res + " ";
+			res = res + printAvgAsString(item.getSize(), item.getTotalCount());
+		}
+		long[] counts = item.getHistoCounts();
+		if (counts.length > 0 && item.getTotalCount() > 0) {
+			int lastNonZero = counts.length - 1;
+			while (lastNonZero > 0 && counts[lastNonZero] == 0)
+				lastNonZero--;
+			if (counts[lastNonZero] != 0) {
+				res = res + " [histogram: ";
+				res = res + printNumAsString(item.getCount()); // smallest bracket first
+				for (int i = 0; i <= lastNonZero; i++) {
+					res = res + " ";
+					res= res + printNumAsString(counts[i]);
+				}
+				res = res + "]";
+			}
+		}
+		if (possiblyEliminated)
+			res = res + "; possibly eliminated";
+		//out.println();
+		return res + " <> ";
+	}
+
+
+
+
 	private static void printIndent(PrintWriter out, int depth) {
 		for (int j = 0; j < depth; j++)
 			out.print("\t");
@@ -314,6 +419,59 @@ public class DumpFormatter {
 			if (depth == 0)
 				out.println(); // empty lines on top level
 		}
+	}
+
+	private String printLocationsDeepAsString(int depth, SnapshotDeep ss, SnapshotShallow total) {
+		String res = "";
+		// count how many below threshold (1st pass)
+		int shown = 0;
+		int skipped = 0;
+		for (int i = 0; i < ss.getUsed(); i++) {
+			SnapshotDeep item = ss.getChild(i);
+			if (item.isEmpty())
+				continue; // ignore empty items
+			// always show 1st item and all that exceed threshold
+			if (shown == 0 || item.exceedsThreshold(total, config.getThreshold()))
+				shown++;
+			else
+				skipped++;
+		}
+		boolean printAll = skipped <= 2; // avoid ... 1 more and ... 2 more messages
+
+		// print (2nd pass)
+		shown = 0;
+		skipped = 0;
+		rest[depth].clearShallow();
+		for (int i = 0; i < ss.getUsed(); i++) {
+			SnapshotDeep item = ss.getChild(i);
+			if (item.isEmpty())
+				continue; // ignore empty items
+			if ((shown == 0 || printAll || item.exceedsThreshold(total, config.getThreshold())) && (shown < 5)) {
+				shown++;
+				//printIndent(out, depth);
+				res = res + item.getName();
+				res = res + printlnDetailsShallowAsString(item, total, item.isArray(), item.isPossiblyEliminatedAllocation());
+				if (item.hasChildren()) {
+					//res = res + "@@@CHILD@@@" +  printLocationsDeepAsString( depth + 1, item, total);
+				}
+//				if (depth == 0)
+//					out.println(); // empty lines on top level
+			} else {
+				skipped++;
+				rest[depth].addShallow(item);
+			}
+		}
+//		if (skipped > 0) {
+//			printIndent(out, depth);
+//			out.print("... ");
+//			printNum(out, skipped);
+//			out.print(" more below threshold");
+//			printlnDetailsShallow(out, rest[depth], total, ss.isArray(), false);
+//			if (depth == 0)
+//				out.println(); // empty lines on top level
+//		}
+
+		return res;
 	}
 
 }
