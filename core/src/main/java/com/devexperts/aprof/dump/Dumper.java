@@ -25,7 +25,9 @@ package com.devexperts.aprof.dump;
 import java.io.*;
 import java.text.SimpleDateFormat;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.Map;
+import java.util.TreeMap;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -55,7 +57,10 @@ public class Dumper {
 	private int snapshotCount = 0;
 	private int overflowCount = 0;
 
+	private int counter_file;
 	private boolean firstTime;
+	private TreeMap <String, String> timedDump = new TreeMap<String, String>();
+
 
 	public Dumper(Configuration config, long start) {
 		this.config = config;
@@ -68,40 +73,73 @@ public class Dumper {
 		exec.scheduleAtFixedRate(new Runnable() {
 			@Override
 			public void run() {
-				SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'");
-				String dateMark = sdf.format(new Date());
-				AProfRegistry.takeSnapshot(last);
-				total.addDeep(last);
-				snapshotCount++;
-				String allocationDump = formatter.dumpSnapshotByLocationsAsString(last, SnapshotDeep.UNKNOWN);
+				//MAP APPROACH
+				try
+				{
+					SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'");
+					String dateMark = sdf.format(new Date());
+					AProfRegistry.takeSnapshot(last);
+					total.addDeep(last);
+					snapshotCount++;
 
-				PrintWriter out = null;
-				try {
-					out = new PrintWriter(new FastOutputStreamWriter(new FileOutputStream("ss_object_dump.txt", !firstTime)));
-
-					if (firstTime) {
-						out.println("");
-						out.println(dateMark);
-						out.println("-----------------------------------------------------");
-						out.println("Dump Softsolutions! additional info");
-						out.println("-----------------------------------------------------");
-						out.println("");
-					}
-
-					//out.println(allocationDump);
-					out.println(dateMark + " -> " + allocationDump);
-					firstTime = false;
-
-				} catch (IOException e) {
-					//e.printStackTrace();
-				} finally {
-					if (out != null)
-						try {
-							out.close();
-						} catch (Exception e) {
-							//e.printStackTrace();
-						}
+					String allocationDump = formatter.dumpSnapshotByLocationsAsString(last, SnapshotDeep.UNKNOWN);
+					timedDump.put(dateMark, allocationDump);
 				}
+				catch (Exception ex)
+				{
+					SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'");
+					String dateMark = sdf.format(new Date());
+					timedDump.put(dateMark, "[" + ex.getMessage() + "] [" + ex.toString() + "]");
+				}
+
+
+				//FILE APPROACH
+//				SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'");
+//				String dateMark = sdf.format(new Date());
+//				AProfRegistry.takeSnapshot(last);
+//				total.addDeep(last);
+//				snapshotCount++;
+//
+//				PrintWriter out = null;
+//				try {
+//					String filename = "ss_object_dump_" + counter_file + ".txt";
+//					File tmp = new File(filename);
+//					Boolean canWriteFile = tmp.canWrite();
+//
+//					String allocationDump = formatter.dumpSnapshotByLocationsAsString(last, SnapshotDeep.UNKNOWN);
+//					if (canWriteFile) {
+//						out = new PrintWriter(new FastOutputStreamWriter(new FileOutputStream(filename, !firstTime)));
+//					} else {
+//						//create a brand new file
+//						counter_file = counter_file + 1;
+//						filename = "ss_object_dump_" + counter_file + ".txt";
+//						firstTime = true;
+//						out = new PrintWriter(new FastOutputStreamWriter(new FileOutputStream(filename, !firstTime)));
+//					}
+//
+//					if (firstTime) {
+//						out.println("");
+//						out.println(dateMark);
+//						out.println("-----------------------------------------------------");
+//						out.println("Dump Softsolutions! additional info");
+//						out.println("-----------------------------------------------------");
+//						out.println("");
+//					}
+//
+//					//out.println(allocationDump);
+//					out.println(dateMark + " -> " + allocationDump);
+//					firstTime = false;
+//
+//				} catch (IOException e) {
+//					//e.printStackTrace();
+//				} finally {
+//					if (out != null)
+//						try {
+//							out.close();
+//						} catch (Exception e) {
+//							//e.printStackTrace();
+//						}
+//				}
 			}
 		}, 1, 10, TimeUnit.SECONDS);
 
@@ -201,16 +239,16 @@ public class Dumper {
 		formatter.dumpSnapshot(out, total, "TOTAL");
 
 
-//		out.println("");
-//		out.println("-----------------------------------------------------");
-//		out.println("Dump Softsolutions! additional info");
-//		out.println("-----------------------------------------------------");
-//		out.println("");
-//		if (_allocationsDump != null) {
-//			for (Map.Entry<String, String> entry : _allocationsDump.entrySet()) {
-//				out.println(entry.getKey() + " -> " + entry.getValue());
-//			}
-//		}
+		out.println("");
+		out.println("-----------------------------------------------------");
+		out.println("Dump Softsolutions! additional info");
+		out.println("-----------------------------------------------------");
+		out.println("");
+		if (timedDump != null) {
+			for (Map.Entry<String, String> entry : timedDump.entrySet()) {
+				out.println(entry.getKey() + " -> " + entry.getValue());
+			}
+		}
 		out.println();
 	}
 
