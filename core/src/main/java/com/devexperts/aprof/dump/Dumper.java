@@ -68,81 +68,6 @@ public class Dumper {
 		this.start = start;
 		this.formatter = new DumpFormatter(config);
 		this.firstTime = true;
-
-		ScheduledExecutorService exec = Executors.newSingleThreadScheduledExecutor();
-		exec.scheduleAtFixedRate(new Runnable() {
-			@Override
-			public void run() {
-				//MAP APPROACH
-				try
-				{
-					SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'");
-					String dateMark = sdf.format(new Date());
-					AProfRegistry.takeSnapshot(last);
-					total.addDeep(last);
-					snapshotCount++;
-
-					String allocationDump = formatter.dumpSnapshotByLocationsAsString(last, SnapshotDeep.UNKNOWN);
-					timedDump.put(dateMark, allocationDump);
-				}
-				catch (Exception ex)
-				{
-					SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'");
-					String dateMark = sdf.format(new Date());
-					timedDump.put(dateMark, "[" + ex.getMessage() + "] [" + ex.toString() + "]");
-				}
-
-
-				//FILE APPROACH
-//				SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'");
-//				String dateMark = sdf.format(new Date());
-//				AProfRegistry.takeSnapshot(last);
-//				total.addDeep(last);
-//				snapshotCount++;
-//
-//				PrintWriter out = null;
-//				try {
-//					String filename = "ss_object_dump_" + counter_file + ".txt";
-//					File tmp = new File(filename);
-//					Boolean canWriteFile = tmp.canWrite();
-//
-//					String allocationDump = formatter.dumpSnapshotByLocationsAsString(last, SnapshotDeep.UNKNOWN);
-//					if (canWriteFile) {
-//						out = new PrintWriter(new FastOutputStreamWriter(new FileOutputStream(filename, !firstTime)));
-//					} else {
-//						//create a brand new file
-//						counter_file = counter_file + 1;
-//						filename = "ss_object_dump_" + counter_file + ".txt";
-//						firstTime = true;
-//						out = new PrintWriter(new FastOutputStreamWriter(new FileOutputStream(filename, !firstTime)));
-//					}
-//
-//					if (firstTime) {
-//						out.println("");
-//						out.println(dateMark);
-//						out.println("-----------------------------------------------------");
-//						out.println("Dump Softsolutions! additional info");
-//						out.println("-----------------------------------------------------");
-//						out.println("");
-//					}
-//
-//					//out.println(allocationDump);
-//					out.println(dateMark + " -> " + allocationDump);
-//					firstTime = false;
-//
-//				} catch (IOException e) {
-//					//e.printStackTrace();
-//				} finally {
-//					if (out != null)
-//						try {
-//							out.close();
-//						} catch (Exception e) {
-//							//e.printStackTrace();
-//						}
-//				}
-			}
-		}, 1, 10, TimeUnit.SECONDS);
-
 	}
 
 	public synchronized void makeOverflowSnapshot() {
@@ -237,18 +162,6 @@ public class Dumper {
 
 		total.setTime(now - start);
 		formatter.dumpSnapshot(out, total, "TOTAL");
-
-
-		out.println("");
-		out.println("-----------------------------------------------------");
-		out.println("Dump Softsolutions! additional info");
-		out.println("-----------------------------------------------------");
-		out.println("");
-		if (timedDump != null) {
-			for (Map.Entry<String, String> entry : timedDump.entrySet()) {
-				out.println(entry.getKey() + " -> " + entry.getValue());
-			}
-		}
 		out.println();
 	}
 

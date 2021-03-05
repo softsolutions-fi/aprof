@@ -23,7 +23,9 @@ package com.devexperts.aprof.dump;
  */
 
 import java.io.PrintWriter;
+import java.text.SimpleDateFormat;
 import java.util.Comparator;
+import java.util.Date;
 import java.util.Map;
 
 import com.devexperts.aprof.AProfRegistry;
@@ -48,6 +50,7 @@ public class DumpFormatter {
 	private final FastObjIntMap<String> classLevel = new FastObjIntMap<String>();
 	private final FastObjIntMap<String> locationIndex = new FastObjIntMap<String>();
 	private final SnapshotDeep locations;
+	private final SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'");
 
 	public DumpFormatter(Configuration config) {
 		this.config = config;
@@ -70,14 +73,6 @@ public class DumpFormatter {
 		printlnTearLine(out, '-');
 		ss.sortChildrenDeep(getOutputComparator());
 		dumpSnapshotByDataTypes(out, ss);
-
-//		out.println("Dump Softsolutions! additional info");
-//		Map<String, String> allocationDump = AProfRegistry.getAllocationDump();
-//		if (allocationDump != null) {
-//			for (Map.Entry<String, String> entry : allocationDump.entrySet()) {
-//				out.println(entry.getKey() + ":" + entry.getValue());
-//			}
-//		}
 	}
 
 	public String dumpSnapshotByLocationsAsString(SnapshotRoot ss, String insideOf) {
@@ -152,6 +147,8 @@ public class DumpFormatter {
 		//------ start with tear line
 		printlnTearLine(out, '=');
 		//------ Line #1
+		String dateMark = sdf.format(new Date());
+		out.println(dateMark);
 		out.print(kind + " allocation dump for ");
 		printNum(out, ss.getTime());
 		out.print(" ms (");

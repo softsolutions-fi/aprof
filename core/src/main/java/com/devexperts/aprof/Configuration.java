@@ -29,6 +29,7 @@ import java.lang.management.ManagementFactory;
 import java.lang.reflect.Array;
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
+import java.text.SimpleDateFormat;
 import java.util.*;
 
 /**
@@ -177,7 +178,20 @@ public class Configuration {
 		return config_file;
 	}
 
+	private boolean firstTime = true;
+
 	public String getFile() {
+		if (firstTime) {
+			SimpleDateFormat formatter = new SimpleDateFormat("yyyy_MM_dd_HH_mm_ss");
+			Date date = new Date();
+			int at = file.indexOf('.');
+			if (at != -1) {
+				file = file.substring(0, at) + "_" + formatter.format(date) + file.substring(at);
+			} else {
+				file = file + "_" + formatter.format(date);
+			}
+			firstTime = false;
+		}
 		return file;
 	}
 
