@@ -51,6 +51,9 @@ public class Configuration {
 	@Description("File location for Aprof dump, empty to work without file. Sharps (##) are used to specify file number.")
 	private String file = "aprof.txt";
 
+	@Description("Whether Aprof dump shall be reused file instead of rewriting it.")
+	private boolean file_reuse = false;
+
 	@Description("Whether Aprof dump shall be appended to the file instead of rewriting it.")
 	private boolean file_append = false;
 
@@ -174,6 +177,10 @@ public class Configuration {
 		histogramConfig = new HistogramConfiguration(histogram, histogram_file);
 	}
 
+	public boolean isFileReuse() {
+		return file_reuse;
+	}
+
 	public String getConfigFile() {
 		return config_file;
 	}
@@ -184,11 +191,14 @@ public class Configuration {
 		if (firstTime) {
 			SimpleDateFormat formatter = new SimpleDateFormat("yyyy_MM_dd_HH_mm_ss");
 			Date date = new Date();
+			file = file.replace("#", ":");
 			int at = file.indexOf('.');
-			if (at != -1) {
-				file = file.substring(0, at) + "_" + formatter.format(date) + file.substring(at);
-			} else {
-				file = file + "_" + formatter.format(date);
+			if (!isFileReuse()) {
+				if (at != -1) {
+					file = file.substring(0, at) + "_" + formatter.format(date) + file.substring(at);
+				} else {
+					file = file + "_" + formatter.format(date);
+				}
 			}
 			firstTime = false;
 		}
